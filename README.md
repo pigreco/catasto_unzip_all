@@ -28,4 +28,6 @@ Usare l'algoritmo di Processing [Fondi](https://docs.qgis.org/3.34/it/docs/user_
 
 ## video
 
-![video](https://youtu.be/ZlKiz5jQMOI)
+## Guarda il video
+
+[![Video](https://img.youtube.com/vi/ZlKiz5jQMOI/0.jpg)](https://youtu.be/ZlKiz5jQMOI)
