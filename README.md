@@ -15,7 +15,7 @@ Unzippa le cartelle e crea due cartelle separate per le map e ple, tutto da wind
 
 ## QGIS
 
-Usare l'algoritmo di Processing Fondi per fondere tutte le particelle o le mappe.
+Usare l'algoritmo di Processing [Fondi](https://docs.qgis.org/3.34/it/docs/user_manual/processing_algs/qgis/vectorgeneral.html#qgismergevectorlayers) per fondere tutte le particelle o le mappe.
 
 
 ![](./img/fondi.png)
