@@ -1,6 +1,6 @@
 # catasto_unzip_all
 
-Unzippa le cartelle e crea due cartelle separate per le map e plg
+Unzippa le cartelle e crea due cartelle separate per le map e ple
 
 ## Come usarlo
 
