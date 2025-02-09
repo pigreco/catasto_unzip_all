@@ -13,4 +13,10 @@ Unzippa le cartelle e crea due cartelle separate per le map e ple, tutto da wind
 
 ## script creato con l'ausilio di Claude AI
 
+## QGIS
+
+Usare l'algoritmo di Processing Fondi per fondere tutte le particelle o le mappe.
+
+
+![](./img/fondi.png)
 
