@@ -25,3 +25,7 @@ Usare l'algoritmo di Processing [Fondi](https://docs.qgis.org/3.34/it/docs/user_
 ## test su Sicilia
 
 ![](./img/img_02.png)
+
+## video
+
+![](https://youtu.be/ZlKiz5jQMOI)
