@@ -1,57 +1,54 @@
 @echo off
-echo Inizio elaborazione file...
+setlocal enabledelayedexpansion
+
+echo Inizio elaborazione dei file zip nidificati...
 echo.
 
 :: Crea le cartelle di destinazione
 mkdir ple_files 2>nul
 mkdir map_files 2>nul
-
-:: Crea cartella temporanea per le estrazioni
 mkdir temp_extract 2>nul
-cd temp_extract
 
-:: Copia ed estrai tutti i file zip
-echo Copiando e estraendo i file ZIP...
-for /r ".." %%X in (*.zip) do (
-    echo Elaborando: %%X
-    copy "%%X" . > nul
+:: Primo livello - estrai i zip delle province
+echo Elaborazione zip di primo livello...
+for %%Z in (*.zip) do (
+    echo Estraendo provincia: %%Z
+    powershell -command "Expand-Archive -Path '%%Z' -DestinationPath 'temp_extract\%%~nZ' -Force"
 )
 
-:: Estrai tutti i file zip
-for %%F in (*.zip) do (
-    echo Estraendo: %%F
-    powershell -command "Expand-Archive -Path '%%F' -DestinationPath '%%~nF' -Force"
-)
-
-:: Sposta i file nelle cartelle appropriate
+:: Secondo livello - estrai i zip dei comuni
 echo.
-echo Organizzando i file...
-cd ..
-
-:: Sposta i file che terminano in _ple
-for /r "temp_extract" %%G in (*_ple.*) do (
-    echo Spostando file PLE: %%~nxG
-    move "%%G" "ple_files\" > nul
+echo Elaborazione zip di secondo livello...
+for /r "temp_extract" %%F in (*.zip) do (
+    echo Estraendo comune: %%~nxF
+    powershell -command "Expand-Archive -Path '%%F' -DestinationPath '%%~dpnF_extracted' -Force"
 )
 
-:: Sposta i file che terminano in _map
-for /r "temp_extract" %%G in (*_map.*) do (
-    echo Spostando file MAP: %%~nxG
-    move "%%G" "map_files\" > nul
+:: Sposta tutti i file GML trovati
+echo.
+echo Spostamento file GML...
+for /r "temp_extract" %%G in (*.gml) do (
+    set "filename=%%~nxG"
+    echo Analizzando: !filename!
+    
+    if "!filename:_ple=!" neq "!filename!" (
+        echo Spostando PLE: %%~nxG
+        move "%%G" "ple_files\" > nul
+    ) else if "!filename:_map=!" neq "!filename!" (
+        echo Spostando MAP: %%~nxG
+        move "%%G" "map_files\" > nul
+    )
 )
 
-:: Pulizia
+:: Pulisci le cartelle temporanee
 echo.
 echo Pulizia file temporanei...
 rmdir /s /q temp_extract
 
+:: Mostra riepilogo con conteggio
 echo.
 echo Elaborazione completata!
-echo I file "_ple" si trovano nella cartella 'ple_files'
-echo I file "_map" si trovano nella cartella 'map_files'
 echo.
-
-:: Mostra il conteggio dei file in ogni cartella
 echo Riepilogo:
 echo ------------
 dir /b /a-d "ple_files\*.*" 2>nul | find /c /v "" > temp.txt
