@@ -2,6 +2,20 @@
 
 Unzippa le cartelle e crea due cartelle separate per le map e ple, tutto da windows!!!
 
+## Strutture cartelle
+```
+cartella_principale/
+    ├── provincia1.zip
+    │   ├── comune1.zip
+    │   │   ├── file_ple.gml
+    │   │   └── file_map.gml
+    │   └── comune2.zip
+    │       ├── file_ple.gml
+    │       └── file_map.gml
+    └── provincia2.zip
+        └── ...
+```
+
 ## Come usarlo
 
 ![](./img/img_00.png)
