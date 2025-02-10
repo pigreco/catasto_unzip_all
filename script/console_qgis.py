@@ -50,6 +50,24 @@ def safe_cleanup(folder_path):
 def collect_inputs():
     inputs = {}
     
+    # Regions dropdown
+    REGIONS = [
+        'ABRUZZO', 'BASILICATA', 'CALABRIA', 'CAMPANIA', 'EMILIA-ROMAGNA', 
+        'FRIULI-VENEZIA-GIULIA', 'LAZIO', 'LIGURIA', 'LOMBARDIA', 'MARCHE', 
+        'MOLISE', 'PIEMONTE', 'PUGLIA', 'SARDEGNA', 'SICILIA', 
+        'TOSCANA', 'UMBRIA', 'VENETO'
+    ]
+    
+    region, ok = QInputDialog.getItem(None, 'Seleziona Regione', 
+                                      'Scegli la regione:', 
+                                      REGIONS, 0, False)
+    if not ok: return None
+    inputs['region'] = region
+    
+    # Compose URL dynamically
+    base_url = "https://wfs.cartografia.agenziaentrate.gov.it/inspire/wfs/GetDataset.php?dataset="
+    inputs['url'] = f"{base_url}{region.lower()}.zip"
+    
     file_types = ['Mappe (MAP)', 'Particelle (PLE)', 'Entrambi']
     file_type, ok = QInputDialog.getItem(None, 'Tipo File', 
                                        'Seleziona il tipo di file da unire:', 
@@ -60,10 +78,6 @@ def collect_inputs():
     main_folder = QFileDialog.getExistingDirectory(None, 'Seleziona cartella di lavoro')
     if not main_folder: return None
     inputs['main_folder'] = main_folder
-    
-    url, ok = QInputDialog.getText(None, 'URL', 'Inserisci URL del file ZIP:', QLineEdit.Normal)
-    if not ok or not url: return None
-    inputs['url'] = url
     
     formats = {
         'GML': '.gml',
@@ -253,6 +267,7 @@ def process_gml_files():
                 log_message(f"Nota: la cartella principale non è stata rimossa: {str(e)}")
         
         log_message("\nElaborazione completata!")
+        log_message(f"Regione selezionata: {inputs['region']}")
         if 'map_output' in inputs:
             log_message(f"File MAP salvato in: {inputs['map_output']}")
         if 'ple_output' in inputs:
