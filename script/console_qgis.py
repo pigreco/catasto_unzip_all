@@ -109,7 +109,7 @@ def collect_inputs():
         inputs['ple_output'] = ple_output
 
     delete_temp, ok = QInputDialog.getItem(None, 'Pulizia', 
-                                         'Vuoi eliminare le cartelle temporanee map_files e ple_files?', 
+                                         'Vuoi eliminare le cartelle temporanee?', 
                                          ['Sì', 'No'], 0, False)
     if not ok: return None
     inputs['delete_temp'] = delete_temp == 'Sì'
