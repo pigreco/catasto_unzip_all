@@ -1,3 +1,5 @@
+#© totò fiandaca - 14/02/2025
+
 from qgis.core import QgsVectorLayer, QgsProject, QgsMessageLog
 from qgis.PyQt.QtWidgets import QInputDialog, QLineEdit, QFileDialog, QMessageBox
 import os

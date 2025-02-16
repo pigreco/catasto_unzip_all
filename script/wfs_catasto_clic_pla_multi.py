@@ -1,49 +1,65 @@
-#© totò fiandaca - 14/02/2025
+#© totò fiandaca - 13/02/2025
 
 from qgis.core import (QgsVectorLayer, QgsPointXY, QgsGeometry, 
                       QgsSpatialIndex, QgsFeatureRequest, QgsCoordinateReferenceSystem,
                       QgsCoordinateTransform, QgsProject, QgsField, QgsFeature)
 from qgis.gui import QgsMapToolEmitPoint
 from qgis.utils import iface
-from PyQt5.QtCore import QVariant
+from PyQt5.QtCore import Qt, QVariant
 
-class PointTool(QgsMapToolEmitPoint):
+class CatastoQueryTool(QgsMapToolEmitPoint):
     def __init__(self, canvas):
         QgsMapToolEmitPoint.__init__(self, canvas)
         self.canvas = canvas
         self.active = False
+        self.memory_layer = None
+        self.initialize_memory_layer()
+    
+    def initialize_memory_layer(self):
+        """Inizializza il layer di memoria per la sessione"""
+        self.memory_layer = QgsVectorLayer("MultiPolygon?crs=EPSG:6706", "Particelle_Catastali_Sessione", "memory")
+        # Aggiungeremo i campi quando riceviamo la prima feature
+        self.memory_layer.startEditing()
+        QgsProject.instance().addMapLayer(self.memory_layer)
+        print("\nCreato nuovo layer per la sessione: Particelle_Catastali_Sessione")
     
     def activate(self):
         self.active = True
+        print("\nStrumento attivo. Clicca sulla mappa per interrogare il catasto. Premi ESC per uscire.")
         super().activate()
     
     def deactivate(self):
         self.active = False
+        if self.memory_layer and self.memory_layer.featureCount() == 0:
+            # Rimuovi il layer se vuoto
+            QgsProject.instance().removeMapLayer(self.memory_layer.id())
         super().deactivate()
     
+    def keyPressEvent(self, event):
+        if event.key() == Qt.Key_Escape:
+            print("\nStrumento disattivato.")
+            self.deactivate()
+            iface.mapCanvas().unsetMapTool(self)
+            
     def canvasReleaseEvent(self, event):
         if not self.active:
             return
             
-        # Ottieni il punto cliccato
         point = self.toMapCoordinates(event.pos())
         
-        # Converti le coordinate in WGS84
+        # Converti in WGS84
         source_crs = self.canvas.mapSettings().destinationCrs()
-        dest_crs = QgsCoordinateReferenceSystem("EPSG:4326")  # WGS84
+        dest_crs = QgsCoordinateReferenceSystem("EPSG:4326")
         transform = QgsCoordinateTransform(source_crs, dest_crs, QgsProject.instance())
         wgs84_point = transform.transform(point)
         
-        # Esegui la query
         try:
-            particelle, layer = query_catasto_point(wgs84_point.x(), wgs84_point.y())
+            particelle = query_catasto_point(wgs84_point.x(), wgs84_point.y(), self.memory_layer)
             if particelle:
                 print("\nRisultati della ricerca:")
                 for i, particella in enumerate(particelle):
                     print_feature_details(particella, i)
-                    
-                if layer:
-                    print(f"\nCreato layer '{layer.name()}' con {layer.featureCount()} particelle")
+                print(f"\nLayer aggiornato: {self.memory_layer.featureCount()} particelle totali")
             else:
                 print("\nNessuna particella trovata in quel punto")
         except Exception as e:
@@ -53,23 +69,18 @@ class PointTool(QgsMapToolEmitPoint):
             print("2. L'accessibilità del servizio WFS del Catasto")
             print("3. La validità delle credenziali (se richieste)")
         
-        # Disattiva lo strumento dopo l'uso
-        self.deactivate()
-        iface.mapCanvas().unsetMapTool(self)
+        print("\nClicca per una nuova ricerca o premi ESC per uscire.")
 
-def query_catasto_point(x, y, create_layer=True):
+def query_catasto_point(x, y, memory_layer):
     """
-    Interroga il WFS del Catasto per un punto specificato e crea opzionalmente un layer
+    Interroga il WFS del Catasto per un punto specificato e aggiunge i risultati al layer della sessione
     Args:
         x (float): Longitudine del punto (WGS84)
         y (float): Latitudine del punto (WGS84)
-        create_layer (bool): Se True, crea un layer vettoriale con i risultati
+        memory_layer: Layer vettoriale dove salvare i risultati
     """
-    
-    # URL base del servizio WFS catastale con tutti i parametri necessari
     base_url = 'https://wfs.cartografia.agenziaentrate.gov.it/inspire/wfs/owfs01.php'
     
-    # Costruzione dell'URI con parametri verificati
     uri = (f"pagingEnabled='true' "
            f"preferCoordinatesForWfsT11='false' "
            f"restrictToRequestBBOX='1' "
@@ -81,7 +92,6 @@ def query_catasto_point(x, y, create_layer=True):
     
     print(f"\nInizio query per il punto ({x}, {y})")
     
-    # Carica il layer WFS
     wfs_layer = QgsVectorLayer(uri, "catasto_query", "WFS")
     
     if not wfs_layer.isValid():
@@ -90,45 +100,53 @@ def query_catasto_point(x, y, create_layer=True):
     
     print("Layer WFS caricato con successo")
     
-    # Crea il filtro spaziale
     point = QgsGeometry.fromPointXY(QgsPointXY(x, y))
-    
-    # Imposta una request con il filtro spaziale
     request = QgsFeatureRequest().setFilterRect(point.boundingBox())
-    
-    # Recupera le features
     features = list(wfs_layer.getFeatures(request))
     print(f"Features trovate: {len(features)}")
     
-    if create_layer and features:
-        # Crea un nuovo layer vettoriale in memoria
-        memory_layer = QgsVectorLayer("MultiPolygon?crs=EPSG:6706", "Particelle_Catastali", "memory")
+    if features:
+        # Se è la prima feature, inizializza i campi del layer
+        if memory_layer.fields().count() == 0:
+            memory_layer.addAttribute(QgsField('NATIONALCADASTRALREFERENCE', QVariant.String))
+            memory_layer.addAttribute(QgsField('ADMIN', QVariant.String))
+            memory_layer.addAttribute(QgsField('SEZIONE', QVariant.String))
+            memory_layer.addAttribute(QgsField('FOGLIO', QVariant.String))
+            memory_layer.addAttribute(QgsField('PARTICELLA', QVariant.String))
+            memory_layer.updateFields()
+        
+        # Aggiungi le features al layer della sessione
         memory_layer.startEditing()
+        features_to_add = []
+        existing_refs = set(feat['NATIONALCADASTRALREFERENCE'] for feat in memory_layer.getFeatures())
         
-        # Aggiungi i campi al layer
-        for field in wfs_layer.fields():
-            memory_layer.addAttribute(field)
-        memory_layer.updateFields()
-        
-        # Aggiungi le features al nuovo layer
         for feat in features:
-            new_feat = QgsFeature(memory_layer.fields())
-            # Copia gli attributi
-            for field in wfs_layer.fields():
-                new_feat[field.name()] = feat[field.name()]
-            # Copia la geometria
-            new_feat.setGeometry(feat.geometry())
-            memory_layer.addFeature(new_feat)
+            ref_catastale = feat['NATIONALCADASTRALREFERENCE']
+            if ref_catastale not in existing_refs:
+                new_feat = QgsFeature(memory_layer.fields())
+                # Copia e elabora il riferimento catastale
+                ref_catastale = feat['NATIONALCADASTRALREFERENCE']
+                new_feat['NATIONALCADASTRALREFERENCE'] = ref_catastale
+                
+                # Estrai i componenti usando la regex
+                new_feat['ADMIN'] = ref_catastale[:4]
+                new_feat['SEZIONE'] = ref_catastale[4:5]
+                new_feat['FOGLIO'] = ref_catastale[5:9]
+                new_feat['PARTICELLA'] = ref_catastale.split('.')[-1]
+                # Copia geometria
+                new_feat.setGeometry(feat.geometry())
+                features_to_add.append(new_feat)
+                existing_refs.add(ref_catastale)
         
-        memory_layer.commitChanges()
-        
-        # Aggiungi il layer al progetto
-        QgsProject.instance().addMapLayer(memory_layer)
-        print(f"Creato nuovo layer: {memory_layer.name()}")
-        
-        return features, memory_layer
+        # Aggiungi tutte le features in una volta
+        if features_to_add:
+            memory_layer.addFeatures(features_to_add)
+            memory_layer.commitChanges()
+            memory_layer.updateExtents()
+            memory_layer.triggerRepaint()
+            print(f"Aggiunte {len(features_to_add)} nuove particelle al layer")
     
-    return features, None
+    return features
 
 def print_feature_details(feature, index):
     """
@@ -137,7 +155,6 @@ def print_feature_details(feature, index):
     print(f"\nParticella {index + 1}:")
     print("-" * 50)
     
-    # Dizionario per tradurre i nomi dei campi
     field_translations = {
         'INSPIREID_LOCALID': 'ID Locale',
         'INSPIREID_NAMESPACE': 'Namespace',
@@ -158,8 +175,8 @@ def print_feature_details(feature, index):
             print(f"{display_name}: {value}")
     print("-" * 50)
 
-# Inizializza e attiva lo strumento punto
+# Inizializza e attiva lo strumento
 canvas = iface.mapCanvas()
-point_tool = PointTool(canvas)
+point_tool = CatastoQueryTool(canvas)
 canvas.setMapTool(point_tool)
 point_tool.activate()
